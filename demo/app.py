@@ -46,10 +46,15 @@ def get_fred_data(api_key):
     data = {
         "CPI 物價指數": fred.get_series("CPIAUCSL"),
         "10年期美債殖利率": fred.get_series("DGS10"),
+        "2年期美債殖利率": fred.get_series("DGS2"),  # 新增 2 年期
         "美國失業率": fred.get_series("UNRATE"),
         "聯邦基金利率": fred.get_series("FEDFUNDS")
     }
-    df = pd.DataFrame(data).ffill().tail(365)
+    # 放大至近 3 年 (約 1095 天)，使殖利率曲線倒掛趨勢更明顯
+    df = pd.DataFrame(data).ffill().tail(1095)
+    
+    # 計算 10Y - 2Y 利差
+    df["10Y-2Y利差"] = df["10年期美債殖利率"] - df["2年期美債殖利率"]
     return df
 
 @st.cache_data(ttl=600)
@@ -66,7 +71,6 @@ def get_market_data():
 
 @st.cache_data(ttl=1800)
 def fetch_google_news(keyword="Federal Reserve Inflation"):
-    # 使用 quote 轉碼，確保包含空白或特殊字元之關鍵字連線成功
     safe_keyword = quote(keyword)
     url = f"https://news.google.com/rss/search?q={safe_keyword}&hl=en-US"
     feed = feedparser.parse(url)
@@ -80,26 +84,37 @@ if fred_key:
         macro_df = get_fred_data(fred_key)
         market_df = get_market_data()
 
-        # 第一區塊：核心總經 KPI 卡片
+        # --- 殖利率倒掛警示燈號 ---
+        latest_spread = macro_df["10Y-2Y利差"].dropna().iloc[-1]
+        spread_prev = macro_df["10Y-2Y利差"].dropna().iloc[-2]
+        
+        if latest_spread < 0:
+            st.error(f"⚠️ **警示：殖利率曲線倒掛！** 10 年期與 2 年期美債利差為 **{latest_spread:.2f}%**，暗示市場對未來潛在衰退的擔憂。")
+        else:
+            st.success(f"✅ **殖利率曲線未倒掛**。目前 10 年期與 2 年期美債利差為 **{latest_spread:.2f}%**。")
+
+        # --- 第一區塊：核心總經 KPI 卡片 ---
         st.subheader("📊 關鍵總體經濟指標 (FRED)")
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         
         latest_cpi = macro_df["CPI 物價指數"].dropna().iloc[-1]
         col1.metric("CPI 物價指數", f"{latest_cpi:.1f}")
         
-        latest_rate = macro_df["10年期美債殖利率"].dropna().iloc[-1]
-        rate_prev = macro_df["10年期美債殖利率"].dropna().iloc[-2]
-        col2.metric("10年美債殖利率", f"{latest_rate:.2f}%", f"{latest_rate - rate_prev:+.2f}%")
+        latest_rate_10 = macro_df["10年期美債殖利率"].dropna().iloc[-1]
+        rate_prev_10 = macro_df["10年期美債殖利率"].dropna().iloc[-2]
+        col2.metric("10年美債殖利率", f"{latest_rate_10:.2f}%", f"{latest_rate_10 - rate_prev_10:+.2f}%")
+        
+        col3.metric("10Y-2Y 利差", f"{latest_spread:.2f}%", f"{latest_spread - spread_prev:+.2f}%")
         
         latest_unemp = macro_df["美國失業率"].dropna().iloc[-1]
-        col3.metric("美國失業率", f"{latest_unemp:.1f}%")
+        col4.metric("美國失業率", f"{latest_unemp:.1f}%")
         
         latest_fed = macro_df["聯邦基金利率"].dropna().iloc[-1]
-        col4.metric("聯邦基金利率", f"{latest_fed:.2f}%")
+        col5.metric("聯邦基金利率", f"{latest_fed:.2f}%")
 
         st.write("---")
 
-        # 第二區塊：分頁儀表板
+        # --- 第二區塊：分頁儀表板 ---
         tab1, tab2, tab3 = st.tabs([
             "📈 金融市場走勢 (yfinance)", 
             "🏛️ 總體經濟趨勢 (FRED)", 
@@ -114,8 +129,16 @@ if fred_key:
             
         # 頁籤 2: 總體經濟
         with tab2:
-            macro_choice = st.selectbox("選擇總體經濟指標：", macro_df.columns)
-            fig2 = px.line(macro_df, y=macro_choice, title=f"{macro_choice} 近一年走勢")
+            st.markdown("#### 📉 10Y-2Y 殖利率利差走勢")
+            fig_spread = px.line(macro_df, y="10Y-2Y利差")
+            fig_spread.add_hline(y=0, line_dash="dash", line_color="red", annotation_text="倒掛警戒線 (0%)")
+            fig_spread.update_layout(margin=dict(l=20, r=20, t=30, b=20))
+            st.plotly_chart(fig_spread, use_container_width=True)
+            
+            st.write("---")
+            
+            macro_choice = st.selectbox("選擇其他總體經濟指標：", macro_df.columns)
+            fig2 = px.line(macro_df, y=macro_choice, title=f"{macro_choice} 歷史走勢")
             st.plotly_chart(fig2, use_container_width=True)
 
         # 頁籤 3: NLP 市場新聞與情緒分析
@@ -149,8 +172,8 @@ if fred_key:
                                              f"2. 貨幣政策立場判定 (鷹派/鴿派/中立)\n" \
                                              f"3. 重點分析與逐條評分表格 (Markdown Format)"
                                     
-                                    # 使用最新 Gemini 3.5 Flash 模型
-                                    model = genai.GenerativeModel("gemini-3.5-flash")
+                                    # 修正模型名稱以確保執行成功
+                                    model = genai.GenerativeModel("gemini-1.5-flash")
                                     response = model.generate_content(prompt)
                                     st.markdown(response.text)
                                 except Exception as e:
@@ -161,6 +184,6 @@ if fred_key:
                     st.warning("👈 請在側邊欄輸入 Gemini API Key（或設定在 Secrets 中）以啟用 AI 文本情緒分析功能。")
 
     except Exception as e:
-        st.error(f"數據讀取失敗，請確認 FRED API Key 是否正確。錯誤訊息: {e}")
+        st.error(f"數據讀取失敗，請確認 API 狀態。錯誤訊息: {e}")
 else:
     st.info("👈 請在左側輸入您的 FRED API Key 以開啟儀表板。")
