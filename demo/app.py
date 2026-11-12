@@ -177,4 +177,33 @@ if fred_key:
                                     # ==========================================
                                     target_model = None
                                     for m in genai.list_models():
-                                        if 'generateContent' in m.supported_generation_
+                                        if 'generateContent' in m.supported_generation_methods:
+                                            # 優先尋找 1.5-flash 模型，若無則降級尋找 pro
+                                            if '1.5-flash' in m.name:
+                                                target_model = m.name.replace('models/', '')
+                                                break
+                                            elif 'pro' in m.name:
+                                                target_model = m.name.replace('models/', '')
+                                    
+                                    # 萬一迴圈因權限問題沒找到，給定一個標準預設值
+                                    if not target_model:
+                                        target_model = "gemini-1.5-flash"
+                                        
+                                    model = genai.GenerativeModel(target_model)
+                                    response = model.generate_content(prompt)
+                                    
+                                    st.markdown(response.text)
+                                    st.caption(f"*(💡 系統自動偵測並調用可用模型: `{target_model}`)*")
+                                    
+                                except Exception as e:
+                                    st.error(f"AI 分析時發生錯誤: {e}")
+                                    st.info("建議檢查：1. API Key 是否正確。 2. GitHub 的 requirements.txt 是否已加上 `google-generativeai>=0.5.2`")
+                        else:
+                            st.warning("尚無新聞數據可供分析。")
+                else:
+                    st.warning("👈 請在側邊欄輸入 Gemini API Key（或設定在 Secrets 中）以啟用 AI 文本情緒分析功能。")
+
+    except Exception as e:
+        st.error(f"數據讀取失敗，請確認 API 狀態。錯誤訊息: {e}")
+else:
+    st.info("👈 請在左側輸入您的 FRED API Key 以開啟儀表板。")
