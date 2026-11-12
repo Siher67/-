@@ -172,14 +172,9 @@ if fred_key:
                                              f"2. 貨幣政策立場判定 (鷹派/鴿派/中立)\n" \
                                              f"3. 重點分析與逐條評分表格 (Markdown Format)"
                                     
-                                    # 先嘗試最新的 1.5 flash 模型，若環境套件過舊報錯則退回穩定的 gemini-pro
-                                    try:
-                                        model = genai.GenerativeModel("gemini-1.5-flash-latest")
-                                        response = model.generate_content(prompt)
-                                    except Exception as e:
-                                        model = genai.GenerativeModel("gemini-pro")
-                                        response = model.generate_content(prompt)
-
+                                    # 修改模型名稱以確保在部分環境下能正確找到模型端點
+                                    model = genai.GenerativeModel("gemini-1.5-flash-latest")
+                                    response = model.generate_content(prompt)
                                     st.markdown(response.text)
                                 except Exception as e:
                                     st.error(f"AI 分析時發生錯誤: {e}")
