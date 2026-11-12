@@ -165,7 +165,41 @@ if fred_key:
                         if news_titles:
                             with st.spinner("Gemini 正在剖析文本立場與鷹鴿情緒中..."):
                                 news_text = "\n".join([f"- {t}" for t in news_titles])
-                                prompt = f"你是一位專業總體經濟分析師。請分析以下 8 條新聞標題：\n{news_text}\n\n" \
-                                         f"請以繁體中文輸出結構化報告：\n" \
-                                         f"1. 整體市場情緒分數 (0~100)\n" \
-                                         f"2. 貨幣政策立場判定 (鷹派/鴿派/中
+                                
+                                # 【已修正】使用多行字串 (f\"\"\") 來包覆 prompt，避免 SyntaxError
+                                prompt = f"""你是一位專業總體經濟分析師。請分析以下 8 條新聞標題：
+{news_text}
+
+請以繁體中文輸出結構化報告：
+1. 整體市場情緒分數 (0~100)
+2. 貨幣政策立場判定 (鷹派/鴿派/中立)
+3. 重點分析與逐條評分表格 (Markdown Format)"""
+                                
+                                # 加入模型降級備援機制
+                                models_to_try = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]
+                                response_text = None
+                                last_error = ""
+                                
+                                for model_name in models_to_try:
+                                    try:
+                                        model = genai.GenerativeModel(model_name)
+                                        response = model.generate_content(prompt)
+                                        response_text = response.text
+                                        break  # 只要有一個成功就跳出迴圈
+                                    except Exception as e:
+                                        last_error = str(e)
+                                        continue  # 失敗則嘗試下一個模型
+                                        
+                                if response_text:
+                                    st.markdown(response_text)
+                                else:
+                                    st.error(f"AI 分析時發生錯誤，支援的模型皆嘗試失敗。請確認 API 金鑰有效性或更新套件。詳細錯誤: {last_error}")
+                        else:
+                            st.warning("尚無新聞數據可供分析。")
+                else:
+                    st.warning("👈 請在側邊欄輸入 Gemini API Key（或設定在 Secrets 中）以啟用 AI 文本情緒分析功能。")
+
+    except Exception as e:
+        st.error(f"數據讀取失敗，請確認 API 狀態。錯誤訊息: {e}")
+else:
+    st.info("👈 請在左側輸入您的 FRED API Key 以開啟儀表板。")
