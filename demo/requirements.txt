@@ -3,4 +3,5 @@ pandas
 plotly
 yfinance
 fredapi
+feedparser
 google-generativeai
