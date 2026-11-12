@@ -46,7 +46,7 @@ def get_fred_data(api_key):
     data = {
         "CPI 物價指數": fred.get_series("CPIAUCSL"),
         "10年期美債殖利率": fred.get_series("DGS10"),
-        "2年期美債殖利率": fred.get_series("DGS2"),
+        "2年期美債殖利率": fred.get_series("DGS2"),  # 新增 2 年期
         "美國失業率": fred.get_series("UNRATE"),
         "聯邦基金利率": fred.get_series("FEDFUNDS")
     }
@@ -164,46 +164,8 @@ if fred_key:
                     if st.button("🚀 開始分析新聞市場情緒", type="primary"):
                         if news_titles:
                             with st.spinner("Gemini 正在剖析文本立場與鷹鴿情緒中..."):
-                                try:
-                                    news_text = "\n".join([f"- {t}" for t in news_titles])
-                                    prompt = f"你是一位專業總體經濟分析師。請分析以下 8 條新聞標題：\n{news_text}\n\n" \
-                                             f"請以繁體中文輸出結構化報告：\n" \
-                                             f"1. 整體市場情緒分數 (0~100)\n" \
-                                             f"2. 貨幣政策立場判定 (鷹派/鴿派/中立)\n" \
-                                             f"3. 重點分析與逐條評分表格 (Markdown Format)"
-                                    
-                                    # ==========================================
-                                    # 優化點：動態向 Google API 查詢可用模型，徹底解決 404 問題
-                                    # ==========================================
-                                    target_model = None
-                                    for m in genai.list_models():
-                                        if 'generateContent' in m.supported_generation_methods:
-                                            # 優先尋找 1.5-flash 模型，若無則降級尋找 pro
-                                            if '1.5-flash' in m.name:
-                                                target_model = m.name.replace('models/', '')
-                                                break
-                                            elif 'pro' in m.name:
-                                                target_model = m.name.replace('models/', '')
-                                    
-                                    # 萬一迴圈因權限問題沒找到，給定一個標準預設值
-                                    if not target_model:
-                                        target_model = "gemini-1.5-flash"
-                                        
-                                    model = genai.GenerativeModel(target_model)
-                                    response = model.generate_content(prompt)
-                                    
-                                    st.markdown(response.text)
-                                    st.caption(f"*(💡 系統自動偵測並調用可用模型: `{target_model}`)*")
-                                    
-                                except Exception as e:
-                                    st.error(f"AI 分析時發生錯誤: {e}")
-                                    st.info("建議檢查：1. API Key 是否正確。 2. GitHub 的 requirements.txt 是否已加上 `google-generativeai>=0.5.2`")
-                        else:
-                            st.warning("尚無新聞數據可供分析。")
-                else:
-                    st.warning("👈 請在側邊欄輸入 Gemini API Key（或設定在 Secrets 中）以啟用 AI 文本情緒分析功能。")
-
-    except Exception as e:
-        st.error(f"數據讀取失敗，請確認 API 狀態。錯誤訊息: {e}")
-else:
-    st.info("👈 請在左側輸入您的 FRED API Key 以開啟儀表板。")
+                                news_text = "\n".join([f"- {t}" for t in news_titles])
+                                prompt = f"你是一位專業總體經濟分析師。請分析以下 8 條新聞標題：\n{news_text}\n\n" \
+                                         f"請以繁體中文輸出結構化報告：\n" \
+                                         f"1. 整體市場情緒分數 (0~100)\n" \
+                                         f"2. 貨幣政策立場判定 (鷹派/鴿派/中
