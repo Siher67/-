@@ -46,7 +46,7 @@ def get_fred_data(api_key):
     data = {
         "CPI 物價指數": fred.get_series("CPIAUCSL"),
         "10年期美債殖利率": fred.get_series("DGS10"),
-        "2年期美債殖利率": fred.get_series("DGS2"),  # 新增 2 年期
+        "2年期美債殖利率": fred.get_series("DGS2"),
         "美國失業率": fred.get_series("UNRATE"),
         "聯邦基金利率": fred.get_series("FEDFUNDS")
     }
@@ -172,18 +172,9 @@ if fred_key:
                                              f"2. 貨幣政策立場判定 (鷹派/鴿派/中立)\n" \
                                              f"3. 重點分析與逐條評分表格 (Markdown Format)"
                                     
-                                    # 修改模型名稱以確保在部分環境下能正確找到模型端點
-                                    model = genai.GenerativeModel("gemini-1.5-flash-latest")
-                                    response = model.generate_content(prompt)
-                                    st.markdown(response.text)
-                                except Exception as e:
-                                    st.error(f"AI 分析時發生錯誤: {e}")
-                        else:
-                            st.warning("尚無新聞數據可供分析。")
-                else:
-                    st.warning("👈 請在側邊欄輸入 Gemini API Key（或設定在 Secrets 中）以啟用 AI 文本情緒分析功能。")
-
-    except Exception as e:
-        st.error(f"數據讀取失敗，請確認 API 狀態。錯誤訊息: {e}")
-else:
-    st.info("👈 請在左側輸入您的 FRED API Key 以開啟儀表板。")
+                                    # ==========================================
+                                    # 優化點：動態向 Google API 查詢可用模型，徹底解決 404 問題
+                                    # ==========================================
+                                    target_model = None
+                                    for m in genai.list_models():
+                                        if 'generateContent' in m.supported_generation_
